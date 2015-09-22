@@ -13,9 +13,13 @@
 package org.eclipse.paho.android.service;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.paho.android.service.MessageStore.StoredMessage;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -37,6 +41,13 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.util.Log;
+
+import com.github.rholder.retry.RetryException;
+import com.github.rholder.retry.Retryer;
+import com.github.rholder.retry.RetryerBuilder;
+import com.github.rholder.retry.StopStrategies;
+import com.github.rholder.retry.WaitStrategies;
+import com.google.common.base.Predicates;
 
 /**
  * <p>
@@ -279,8 +290,7 @@ class MqttConnection implements MqttCallback {
 				else {					
 					service.traceDebug(TAG, "myClient != null and the client is not connected");
 					service.traceDebug(TAG,"Do Real connect!");
-					setConnectingState(true);
-					myClient.connect(connectOptions, invocationContext, listener);
+					doConnect(connectOptions, invocationContext, listener);
 				}
 			}
 			
@@ -291,8 +301,7 @@ class MqttConnection implements MqttCallback {
 				myClient.setCallback(this);
 
 				service.traceDebug(TAG,"Do Real connect!");
-				setConnectingState(true);
-				myClient.connect(connectOptions, invocationContext, listener);
+				doConnect(connectOptions, invocationContext, listener);
 			}
 		} catch (Exception e) {
 			handleException(resultBundle, e);
@@ -313,7 +322,6 @@ class MqttConnection implements MqttCallback {
 		//
 		acquireWakeLock();
 		disconnected = true;
-		setConnectingState(false);
 		service.callbackToActivity(clientHandle, Status.ERROR,resultBundle);
 		releaseWakeLock();
 	}
@@ -1010,24 +1018,12 @@ class MqttConnection implements MqttCallback {
 								resultBundle);
 
 						doAfterConnectFail(resultBundle);
-					        	
-						//reconnect fail , try reconnect . check network in reconnect function;
-                                                long delay = 1000;
-						service.traceDebug(TAG,"Reconnect Fail,Reconnect in: " + delay + " ms");
-                                                try {
-                                                  Thread.sleep(delay);
-                                                } catch(InterruptedException e) {
-                                                }
-						reconnect();
-						
 					}
 				};
-				
-				myClient.connect(connectOptions, null, listener);
-				setConnectingState(true);
+
+				doConnect(connectOptions, null, listener);
 			} catch (MqttException e) {
 				service.traceError(TAG, "Cannot reconnect to remote server." + e.getMessage());
-				setConnectingState(false);
 				handleException(resultBundle, e);
 			}
 		}
@@ -1039,5 +1035,35 @@ class MqttConnection implements MqttCallback {
 	 */
 	synchronized void setConnectingState(boolean isConnecting){
 		this.isConnecting = isConnecting; 
+	}
+
+	private void doConnect(
+			final MqttConnectOptions options,
+			final Object userContext,
+			final IMqttActionListener listener) throws MqttException {
+
+		setConnectingState(true);
+
+		Retryer<Boolean> retryer = RetryerBuilder.<Boolean>newBuilder()
+				.retryIfResult(Predicates.equalTo(false))
+				.retryIfExceptionOfType(MqttException.class)
+				.withWaitStrategy(WaitStrategies.exponentialWait(100, 5, TimeUnit.MINUTES))
+				.withStopStrategy(StopStrategies.neverStop())
+				.build();
+
+		try {
+			retryer.call(new Callable<Boolean>() {
+				@Override
+				public Boolean call() throws Exception {
+					service.traceDebug(TAG, "Connecting to remote server");
+					IMqttToken token = myClient.connect(options, userContext, listener);
+					token.waitForCompletion();
+					return myClient.isConnected();
+				}
+			});
+		} catch (Exception ex) {
+			service.traceException(TAG, "Cannot connect to remote server", ex);
+			setConnectingState(false);
+		}
 	}
 }
