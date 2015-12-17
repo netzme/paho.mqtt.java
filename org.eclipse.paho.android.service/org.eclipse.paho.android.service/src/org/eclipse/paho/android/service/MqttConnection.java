@@ -1034,7 +1034,27 @@ class MqttConnection implements MqttCallback {
 						}
 					}
 				};
-				
+
+				if(myClient == null) {
+					persistence.close();
+
+					// ask Android where we can put files
+					File myDir = service.getExternalFilesDir(TAG);
+
+					if (myDir == null) {
+						// No external storage, use internal storage instead.
+						myDir = service.getDir(TAG, Context.MODE_PRIVATE);
+					}
+
+					// use that to setup MQTT client persistence storage
+					persistence = new MqttDefaultFilePersistence(
+							myDir.getAbsolutePath());
+
+					myClient = new MqttAsyncClient(serverURI, clientId,
+							persistence, new AlarmPingSender(service));
+					myClient.setCallback(this);
+				}
+
 				myClient.connect(connectOptions, null, listener);
 				setConnectingState(true);
 			} catch (MqttException e) {
