@@ -166,7 +166,14 @@ public class ConnectActionListener implements IMqttActionListener {
       comms.connect(options, token);
     }
     catch (MqttException e) {
+      System.out.println("netz-debug1 exception mqtt " + e);
+      persistence.close();
       onFailure(token, e);
+    }
+    catch (RuntimeException ex) {
+      System.out.println("netz-debug1 exception runtime " + ex);
+      persistence.close();
+      throw ex;
     }
   }
 

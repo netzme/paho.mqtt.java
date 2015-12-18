@@ -78,6 +78,8 @@ public class FileLock {
 			}
 		} catch (Exception e) {
 			// Ignore exceptions
+			e.printStackTrace();
+			System.out.println(e.getMessage());
 		}
 		if (file != null) {
 			try {

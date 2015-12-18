@@ -68,7 +68,7 @@ public class MqttDefaultFilePersistence implements MqttClientPersistence {
 	}
 	
 	public void open(String clientId, String theConnection) throws MqttPersistenceException {
-		
+		System.out.println("netz-debug - start open persistence");
 		if (dataDir.exists() && !dataDir.isDirectory()) {
 			throw new MqttPersistenceException();
 		} else if (!dataDir.exists() ) {
@@ -107,8 +107,11 @@ public class MqttDefaultFilePersistence implements MqttClientPersistence {
 			}
 
 			try {
+				System.out.println("netz-debug - assign new FileLock");
 				fileLock = new FileLock(clientDir, LOCK_FILENAME);
 	 		} catch (Exception e) {
+				System.out.println("netz-debug file persistence " + e.getMessage());
+				e.printStackTrace();
 				throw new MqttPersistenceException(MqttPersistenceException.REASON_CODE_PERSISTENCE_IN_USE);
 			}
 
@@ -117,6 +120,8 @@ public class MqttDefaultFilePersistence implements MqttClientPersistence {
 			// the new message was written to disk and the backup removed.
 			restoreBackups(clientDir);
 		}
+
+		System.out.println("netz-debug - end open persistence");
 	}
 
 	/**
@@ -130,18 +135,21 @@ public class MqttDefaultFilePersistence implements MqttClientPersistence {
 	}
 
 	public void close() throws MqttPersistenceException {
-		
+		System.out.println("netz-debug - start close persistence");
 		synchronized (this) {
 			// checkIsOpen();
+			System.out.println("netz-debug - releasing fileLock : " + fileLock);
 			if (fileLock != null) {
 				fileLock.release();
 			}
 
+			System.out.println("netz-debug - deleting all files inside clientDir");
 			if (getFiles().length == 0) {
 				clientDir.delete();
 			}
 			clientDir = null;
 		}
+		System.out.println("netz-debug - end close persistence");
 	}
 
 	/**

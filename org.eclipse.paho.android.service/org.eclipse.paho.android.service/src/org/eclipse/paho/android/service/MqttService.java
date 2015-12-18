@@ -693,7 +693,7 @@ public class MqttService extends Service implements MqttTraceHandler {
   @Override
   public void traceDebug(String tag, String message) {
     traceCallback(MqttServiceConstants.TRACE_DEBUG, tag, message);
-//    Log.d(tag, message);
+    Log.d("netz-debug", tag + message);
   }
 
   /**
@@ -707,6 +707,7 @@ public class MqttService extends Service implements MqttTraceHandler {
   @Override
   public void traceError(String tag, String message) {
     traceCallback(MqttServiceConstants.TRACE_ERROR, tag, message);
+    Log.e("netz-error", tag + message);
   }
 
   private void traceCallback(String severity, String tag, String message) {
