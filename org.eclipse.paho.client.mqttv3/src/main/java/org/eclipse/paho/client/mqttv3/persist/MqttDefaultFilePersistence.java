@@ -143,7 +143,7 @@ public class MqttDefaultFilePersistence implements MqttClientPersistence {
 				fileLock.release();
 			}
 
-			System.out.println("netz-debug - deleting all files inside clientDir");
+			System.out.println("netz-debug - deleting all files inside clientDir : " + clientDir);
 			if (getFiles().length == 0) {
 				clientDir.delete();
 			}
